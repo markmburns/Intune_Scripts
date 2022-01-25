@@ -1,7 +1,7 @@
 
 <#PSScriptInfo
 
-.VERSION 1.1
+.VERSION 1.2
 
 .GUID 3b42d8c8-cda5-4411-a623-90d812a8e29e
 
@@ -29,6 +29,7 @@
 .RELEASENOTES
 Version 1.0: Initial version.
 Version 1.1: Added suffix loop
+Version 1.2: long servicetag for VM testing
 
 .PRIVATEDATA
 
@@ -93,7 +94,12 @@ if ($goodToGo)
     $model = Get-WmiObject Win32_ComputerSystem | Select -Expand Model | Out-String # Get Model name of Machine
     $model2 = Get-WmiObject Win32_ComputerSystemProduct | Select -Expand Version | Out-String # Get Model name of Machine for Lenovos
     $servicetag = Get-WmiObject Win32_ComputerSystemProduct | Select -Expand IdentifyingNumber | Out-String # Get Service Tag or Serial
-    $num = Get-Random -Minimum 1 -Maximum 999 #Get a random integer to set as the temporary name for the VM
+    $servicetag = $servicetag -replace '\s',''
+    if($servicetag.length -gt 10){
+        $servicetag = $servicetag.substring(0,10)
+    }
+
+    #$num = Get-Random -Minimum 1 -Maximum 999 #Get a random integer to set as the temporary name for the VM
     ###### NAMING SCHEME AS OF 04/02/2019 ######
     # [SYSTEM_TYPE]-[SERVICE_TAG] - Example: W-AB12CD
     ###### SYSTEM TYPE EXAMPLES ######
@@ -131,7 +137,7 @@ if ($goodToGo)
     }
     elseIf($model -like '*vmware*')
     {
-       $newName = "V-SETNAME$num"
+       $newName = "V-$servicetag"
     }
     else
     {
