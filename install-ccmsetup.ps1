@@ -2,7 +2,7 @@
 #{4812D39E-A2E8-46B8-B09A-CFC7B8FCA172}
 #powershell.exe -executionpolicy bypass -file "install-ccmsetup.ps1"
 #mark_burns@dell.com for Primark
-.\ccmsetup.exe /mp:CWACMSITE1 SMSSITECODE=PSL /FSP:CWASCCMDEPLOY1 
+.\ccmsetup.exe SMSSITECODE=MMB  
 $retry = 0
 while($retry -lt 14){
     $service= get-service -name CcmExec
