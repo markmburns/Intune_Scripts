@@ -1,45 +1,22 @@
-
 <#PSScriptInfo
 
-.VERSION 1.2
+.NAME RenameComputer.ps1
 
-.GUID 3b42d8c8-cda5-4411-a623-90d812a8e29e
+.VERSION 1.4
 
 .AUTHOR Michael Niehaus
-.Additions: mark_burns@dell.com
-
-.COMPANYNAME Microsoft
-
-.COPYRIGHT
-
-.TAGS
-
-.LICENSEURI
-
-.PROJECTURI
-
-.ICONURI
-
-.EXTERNALMODULEDEPENDENCIES 
-
-.REQUIREDSCRIPTS
-
-.EXTERNALSCRIPTDEPENDENCIES
+.ADDITIONS mark_burns@dell.com
 
 .RELEASENOTES
 Version 1.0: Initial version.
-Version 1.1: Added suffix loop
+Version 1.1: Added suffix loop to deal with existing computer objects
 Version 1.2: long servicetag for VM testing
-
-.PRIVATEDATA
-
-#>
-
-<# 
+Version 1.3: Renamed tag for use as standalone PowerShell
+Version 1.4: AssetTag & SerialNumber logic
 
 .DESCRIPTION 
- Rename the computer 
-
+Rename the computer, using AssetTag or SerialNumber logic
+Pre-reqs: https://oofhours.com/2020/05/19/renaming-autopilot-deployed-hybrid-azure-ad-join-devices/
 #> 
 
 Param()
@@ -56,19 +33,26 @@ if ("$env:PROCESSOR_ARCHITEW6432" -ne "ARM64")
 }
 
 # Create a tag file just so Intune knows this was installed
-if (-not (Test-Path "$($env:ProgramData)\Microsoft\RenameComputer"))
+# For use as Win32 but you can also run as PowerShell
+if (-not (Test-Path "$($env:ProgramData)\RenameComputer"))
 {
-    Mkdir "$($env:ProgramData)\Microsoft\RenameComputer"
+    Mkdir "$($env:ProgramData)\RenameComputer"
 }
-Set-Content -Path "$($env:ProgramData)\Microsoft\RenameComputer\RenameComputer.ps1.tag" -Value "Installed"
+Set-Content -Path "$($env:ProgramData)\RenameComputer\RenameComputer.ps1.tag" -Value "Installed"
 
 # Initialization
-$dest = "$($env:ProgramData)\Microsoft\RenameComputer"
+$dest = "$($env:ProgramData)\RenameComputer"
 if (-not (Test-Path $dest))
 {
     mkdir $dest
 }
 Start-Transcript "$dest\RenameComputer.log" -Append
+
+#Have we already run successfully?
+If (Test-Path "$($env:ProgramData)\RenameComputer\Renamed.tag"){
+    Write-Host "Script previously completed, exiting"
+    Exit 0
+}
 
 # Make sure we are already domain-joined
 $goodToGo = $true
@@ -87,62 +71,51 @@ if ($dcInfo.dnsHostName -eq $null)
     $goodToGo = $false
 }
 
-if ($goodToGo)
-{
-    # Get the new computer name
-    #$newName = Invoke-RestMethod -Method GET -Uri "https://generatename.azurewebsites.net/api/HttpTrigger1?prefix=AD-"
-    $model = Get-WmiObject Win32_ComputerSystem | Select -Expand Model | Out-String # Get Model name of Machine
-    $model2 = Get-WmiObject Win32_ComputerSystemProduct | Select -Expand Version | Out-String # Get Model name of Machine for Lenovos
-    $servicetag = Get-WmiObject Win32_ComputerSystemProduct | Select -Expand IdentifyingNumber | Out-String # Get Service Tag or Serial
-    $servicetag = $servicetag -replace '\s',''
-    if($servicetag.length -gt 10){
-        $servicetag = $servicetag.substring(0,10)
-    }
+#Check for ESP WWAHostDetection
+$ESPProcesses = Get-Process -Name 'wwahost' -ErrorAction 'SilentlyContinue'
+if ($ESPProcesses.Count -eq 0) {
+    Write-Host 'WWAHost is not running'
+}else{
+    Write-Host "WWAHost is running"
+    $goodToGo = $false
+}
 
-    #$num = Get-Random -Minimum 1 -Maximum 999 #Get a random integer to set as the temporary name for the VM
-    ###### NAMING SCHEME AS OF 04/02/2019 ######
-    # [SYSTEM_TYPE]-[SERVICE_TAG] - Example: W-AB12CD
-    ###### SYSTEM TYPE EXAMPLES ######
-    # W - Workstation
-    # L - Laptop
-    # S - Surface
-    # V - Virtual 
-    # Z - Unknown 
+#Check for Hybrid Join
+$CheckAzureADState = [string](dsregcmd.exe /status)
+if($CheckAzureADState -notlike '*AzureAdJoined : YES*'){
+    Write-Host "Azure AD not yet joined"
+    $goodToGo = $false
+}else{
+    Write-Host "Azure AD Joined"
+}
 
-    If($model -like '*optiplex*')
-    {    
-        $newName = "W-$servicetag"
+# Get the new computer name
+$newName = ""
 
+#Asset Tag
+$at = Get-CIMInstance win32_systemenclosure | select-object SMBIOSAssetTag
+Write-Host "Looking up Asset tag: $($at.SMBIOSAssetTag)"
+if($at.SMBIOSAssetTag -eq "" -or $at.SMBIOSAssetTag -eq "No Asset Information"-or $at.SMBIOSAssetTag -eq "No Asset Tag"){
+    #Service Tag
+    Write-Host "Valid asset tag not found, resorting to service tag"
+    $servicetag = Get-WmiObject Win32_ComputerSystemProduct | Select -Expand IdentifyingNumber | Out-String # Get Service Tag or Serial number
+    if($servicetag -ne ""){
+        Write-Host "Service tag found: $($servicetag)"
+        $newName = $servicetag
+    }else{
+        Write-Host "Service tag not found"
     }
-    If($model -like '*precision*')
-    {    
-        $newName = "W-$servicetag"
+  }else{
+    Write-Host "Valid asset tag found: $($at.SMBIOSAssetTag)"
+    $newName = $at.SMBIOSAssetTag
+}
 
+if($newName -ne ""){
+    $newName = $newName -replace '\s',''
+    if($newName.length -gt 12){
+        $newName = $newName.substring(0,12)
     }
-    elseIf($model -like '*latitude*')
-    {
-       $newName = "L-$servicetag"
-    }
-    elseIf($model2 -like '*thinkpad*')
-    {
-       $newName = "L-$servicetag"
-    }
-    elseIf($model2 -like '*V130*')
-    {
-       $newName = "L-$servicetag"
-    }
-    elseIf($model -like '*surface*')
-    {
-       $newName = "S-$servicetag"
-    }
-    elseIf($model -like '*vmware*')
-    {
-       $newName = "V-$servicetag"
-    }
-    else
-    {
-       $newName = "Z-$servicetag"
-    }
+    
     #Check for existing name
     $newName = $newName.Trim()
     $adsiResult = ([ADSISearcher]"Name=$newName").FindAll()
@@ -165,10 +138,15 @@ if ($goodToGo)
         Write-Host "Setting new name to "$newerName
         $newName = $newerName
     }else{
-        Write-Host "Newname $newName does not already exist"
+        Write-Host "Could not find $newName via LDAP"
     }
+}else{
+    Write-Host "Could not determine new name"
+    $goodToGo = $false
+}
 
-
+if ($goodToGo)
+{
     # Set the computer name
     Write-Host "Renaming computer to $($newName)"
     $passThru = Rename-Computer -NewName $newName -PassThru
@@ -178,6 +156,7 @@ if ($goodToGo)
     Disable-ScheduledTask -TaskName "RenameComputer" -ErrorAction Ignore
     Unregister-ScheduledTask -TaskName "RenameComputer" -Confirm:$false -ErrorAction Ignore
     Write-Host "Scheduled task unregistered."
+    Set-Content -Path "$($env:ProgramData)\RenameComputer\Renamed.tag" -Value "Installed"
 
     # Make sure we reboot if still in ESP/OOBE by reporting a 1641 return code (hard reboot)
     if ($details.CsUserName -match "defaultUser")
