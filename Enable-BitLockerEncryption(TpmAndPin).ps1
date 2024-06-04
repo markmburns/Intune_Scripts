@@ -40,7 +40,7 @@ param(
 
     [parameter(Mandatory = $false, HelpMessage = "Set the company name to be used as registry root when running in Backup mode.")]
     [ValidateNotNullOrEmpty()]
-    [string]$CompanyName = "Primark"
+    [string]$CompanyName = "CompanyName"
 )
 Process {
     # Functions
@@ -315,7 +315,7 @@ Process {
                                         try {
                                             # Add BitLocker recovery password key protector
                                             Write-LogEntry -Value "Attempting to enable BitLocker protection with TPM key protector for mount point: $($env:SystemRoot)" -Severity 1
-                                            Enable-BitLocker -MountPoint $BitLockerOSVolume.MountPoint -TpmAndPinProtector -Pin $(ConvertTo-SecureString "18241824" -AsPlainText -Force) -UsedSpaceOnly -EncryptionMethod $EncryptionMethod -SkipHardwareTest -ErrorAction Stop
+                                            Enable-BitLocker -MountPoint $BitLockerOSVolume.MountPoint -TpmAndPinProtector -Pin $(ConvertTo-SecureString "38566384" -AsPlainText -Force) -UsedSpaceOnly -EncryptionMethod $EncryptionMethod -SkipHardwareTest -ErrorAction Stop
                                         }
                                         catch [System.Exception] {
                                             Write-LogEntry -Value "An error occurred while enabling BitLocker with recovery password key protector for mount point '$($env:SystemRoot)'. Error message: $($_.Exception.Message)" -Severity 3
