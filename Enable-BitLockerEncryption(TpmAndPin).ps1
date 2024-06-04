@@ -20,11 +20,13 @@
     Contact:     @NickolajA
     Created:     2019-10-29
     Updated:     2020-01-13
+    Updated:     2024-06-04
 
     Version history:
     1.0.0 - (2019-10-29) Script created
     1.0.1 - (2020-01-03) Added functionality to check if TPM chip is owned and take ownership if it's not
     1.0.2 - (2020-01-13) Added functionality to create a schedule task that runs at user logon in case the escrow of the recovery key to AAD device object failed due to device not being registered at the time
+    1.0.3 - (2024-06-04) Default PIN
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
