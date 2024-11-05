@@ -1,7 +1,7 @@
 #Mitigate dependency not immediately existing
 #{4812D39E-A2E8-46B8-B09A-CFC7B8FCA172}
 #powershell.exe -executionpolicy bypass -file "install-ccmsetup.ps1"
-#mark_burns@dell.com for Primark
+#mark_burns@dell.com
 .\ccmsetup.exe SMSSITECODE=MMB  
 $retry = 0
 while($retry -lt 14){
